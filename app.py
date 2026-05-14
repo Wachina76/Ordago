@@ -2,13 +2,14 @@ import streamlit as st
 import random
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Mus Profesional", layout="centered")
+st.set_page_config(page_title="Mus Real", layout="centered")
 
 # --- MOTOR INTERNO ---
 def crear_baraja():
-    palos = ['Oros', 'Copas', 'Espadas', 'Bastos']
-    caras = ['R', 'C', 'S', '7', '6', '5', '4', '3', '2', 'A']
-    return [{'cara': c, 'palo': p} for c in caras for p in palos]
+    palos = ['oros', 'copas', 'espadas', 'bastos']
+    # En ese repo, las cartas van del 1 al 12 (10=Sota, 11=Caballo, 12=Rey)
+    numeros = range(1, 13)
+    return [{'num': n, 'palo': p} for p in palos for n in numeros]
 
 if 'mano' not in st.session_state:
     st.session_state.mano = []
@@ -16,59 +17,43 @@ if 'mano' not in st.session_state:
 # --- DISEÑO CSS ---
 st.markdown("""
     <style>
-    .stApp { background: radial-gradient(circle, #265c26 0%, #123312 100%); }
+    .stApp { background-color: #165216; }
     
-    .carta-container {
-        perspective: 1000px;
-        margin-bottom: 20px;
-    }
-    
-    .carta-img {
+    .carta-realista {
         width: 100%;
         border-radius: 8px;
-        box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
-        transition: transform 0.3s;
-        border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        transition: transform 0.2s;
     }
     
-    .carta-img:hover {
-        transform: translateY(-20px) rotate(2deg);
-        box-shadow: 10px 30px 40px rgba(0,0,0,0.7);
+    .carta-realista:hover {
+        transform: scale(1.05) translateY(-10px);
     }
-
-    .marcador-oro {
-        text-align: center;
-        color: #FFD700;
-        font-family: 'serif';
-        text-shadow: 2px 2px 4px #000;
-        border: 2px solid #FFD700;
-        padding: 10px;
-        border-radius: 10px;
-        background: rgba(0,0,0,0.4);
+    
+    .boton-repartir {
+        background-color: #ffd700 !important;
+        color: black !important;
+        font-weight: bold !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIÓN DE IMÁGENES (Servidor estable) ---
-def obtener_url_carta(carta):
-    # Usamos un servidor de imágenes especializado para juegos
-    p_map = {'Oros': 'o', 'Copas': 'c', 'Espadas': 'e', 'Bastos': 'b'}
-    c_map = {'R': '12', 'C': '11', 'S': '10', '7': '7', '6': '6', '5': '5', '4': '4', '3': '3', '2': '2', 'A': '1'}
-    
-    palo = p_map[carta['palo']]
-    num = c_map[carta['cara']]
-    
-    # URL de un repositorio de cartas españolas optimizado para web
-    return f"https://as01.epimg.net/img/comunes/fotos/diccionario/baraja/{palo}{num}.png"
+# --- FUNCIÓN PARA EL ENLACE DE GITHUB ---
+def obtener_url_raw(carta):
+    # La estructura del repo que pasaste es: img/palo_numero.png
+    base_url = "https://raw.githubusercontent.com/mcmd/playingcards.io-spanish.playing.cards/master/img"
+    return f"{base_url}/{carta['palo']}_{carta['num']}.png"
 
 # --- INTERFAZ ---
-st.markdown("<div class='marcador-oro'><h1>🏆 GRAN CAMPEONATO DE MUS</h1></div>", unsafe_allow_html=True)
-st.write("")
+st.markdown("<h1 style='text-align: center; color: white;'>🎴 PARTIDA REALISTA</h1>", unsafe_allow_html=True)
 
-if st.button("🎴 BARAJAR Y REPARTIR", use_container_width=True):
+if st.button("BARAJAR Y REPARTIR", use_container_width=True):
     baraja = crear_baraja()
-    random.shuffle(baraja)
-    st.session_state.mano = baraja[:4]
+    # El Mus se juega con 40 cartas (quitamos 8 y 9)
+    # Filtramos para que solo salgan 1-7 y 10-12
+    baraja_mus = [c for c in baraja if c['num'] not in [8, 9]]
+    random.shuffle(baraja_mus)
+    st.session_state.mano = baraja_mus[:4]
     st.rerun()
 
 # --- MOSTRAR CARTAS ---
@@ -76,20 +61,18 @@ if st.session_state.mano:
     cols = st.columns(4)
     for i, carta in enumerate(st.session_state.mano):
         with cols[i]:
-            url = obtener_url_carta(carta)
-            st.markdown(f"""
-                <div class="carta-container">
-                    <img src="{url}" class="carta-img">
-                </div>
-            """, unsafe_allow_html=True)
+            url = obtener_url_raw(carta)
+            # Usamos st.image con la URL raw
+            st.image(url, use_container_width=True)
+            # Un pequeño texto debajo para confirmar
+            nombre_carta = f"{carta['num']} de {carta['palo'].capitalize()}"
+            st.markdown(f"<p style='color:white; text-align:center; font-size:12px;'>{nombre_carta}</p>", unsafe_allow_html=True)
 
-st.write("")
 st.divider()
 
-# Botones de juego profesionales
+# Botones de juego
 if st.session_state.mano:
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: st.button("PASO", use_container_width=True)
-    with c2: st.button("ENVIDO", use_container_width=True)
-    with c3: st.button("ÓRDAGO", use_container_width=True)
-    with c4: st.button("QUIERO", use_container_width=True)
+    c1, c2, c3 = st.columns(3)
+    c1.button("PASO", use_container_width=True)
+    c2.button("ENVIDO", use_container_width=True)
+    c3.button("ÓRDAGO", use_container_width=True)
