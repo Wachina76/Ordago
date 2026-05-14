@@ -2,7 +2,7 @@ import streamlit as st
 import random
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Mus Profesional", layout="centered")
+st.set_page_config(page_title="Mus Elite", layout="centered")
 
 # --- MOTOR INTERNO ---
 def crear_baraja():
@@ -13,78 +13,84 @@ def crear_baraja():
 if 'mano' not in st.session_state:
     st.session_state.mano = []
 
-# --- ESTILOS CSS (Mesa y Cartas) ---
+# --- DISEÑO CSS DE ALTA CALIDAD (Sin imágenes externas) ---
 st.markdown("""
     <style>
-    .stApp { background-color: #1a4a1a; }
+    .stApp { background-color: #0e3311; } /* Verde tapete oscuro */
     
-    .carta-box {
-        background-color: white;
-        width: 140px;
-        height: 210px;
-        border-radius: 10px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    .carta-pro {
+        background: white;
+        width: 130px;
+        height: 200px;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.6);
         display: flex;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-        border: 2px solid #fff;
-        transition: transform 0.3s;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 15px;
+        border: 1px solid #ccc;
+        position: relative;
+        transition: all 0.3s ease;
     }
     
-    .carta-box:hover {
-        transform: translateY(-20px) rotate(2deg);
+    .carta-pro:hover {
+        transform: translateY(-15px);
+        box-shadow: 0 20px 35px rgba(0,0,0,0.8);
     }
 
-    .img-real {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+    .esquina {
+        font-size: 22px;
+        font-weight: 900;
+        line-height: 1;
+        font-family: 'Arial Black', sans-serif;
     }
 
-    .marcador-web {
-        background: rgba(0,0,0,0.3);
-        padding: 20px;
-        border-radius: 15px;
-        color: gold;
+    .simbolo-central {
+        font-size: 65px;
         text-align: center;
-        border: 1px solid gold;
-        margin-bottom: 20px;
+        filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.2));
+    }
+
+    /* Estilos por Palo */
+    .palo-Oros { color: #b8860b; border-bottom: 8px solid #ffd700; }
+    .palo-Copas { color: #d32f2f; border-bottom: 8px solid #ff5252; }
+    .palo-Espadas { color: #1976d2; border-bottom: 8px solid #448aff; }
+    .palo-Bastos { color: #2e7d32; border-bottom: 8px solid #66bb6a; }
+
+    .nombre-palo {
+        text-align: center;
+        font-size: 12px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 1px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIÓN DE IMÁGENES (Vía Wikimedia / Formato Seguro) ---
-def obtener_url_wikimedia(carta):
-    # Diccionario de nombres exactos en Wikimedia para la Baraja Española
-    p_map = {'Oros': 'Oros', 'Copas': 'Copas', 'Espadas': 'Espadas', 'Bastos': 'Bastos'}
-    c_map = {'R': '12', 'C': '11', 'S': '10', '7': '7', '6': '6', '5': '5', '4': '4', '3': '3', '2': '2', 'A': '1'}
-    
-    palo = p_map[carta['palo']]
-    num = c_map[carta['cara']]
-    
-    # URL directa a archivos de alta disponibilidad
-    return f"https://raw.githubusercontent.com/fede-pavon/baraja-espanola/master/cartas/{palo}_{num}.png"
+# --- INTERFAZ ---
+st.markdown("<h1 style='text-align: center; color: white;'>🃏 JUEGO DE MUS</h1>", unsafe_allow_html=True)
 
-# --- INTERFAZ DE USUARIO ---
-st.markdown("<div class='marcador-web'><h1>🎴 CAMPEONATO DE MUS</h1></div>", unsafe_allow_html=True)
-
-if st.button("🧧 BARAJAR Y REPARTIR", use_container_width=True):
+if st.button("🎴 REPARTIR NUEVA MANO", use_container_width=True):
     baraja = crear_baraja()
     random.shuffle(baraja)
     st.session_state.mano = baraja[:4]
     st.rerun()
 
-# --- MOSTRAR CARTAS ---
+# --- DIBUJAR CARTAS ---
 if st.session_state.mano:
     cols = st.columns(4)
+    # Diccionario de símbolos de alta calidad
+    simbolos = {'Oros': '🪙', 'Copas': '🏆', 'Espadas': '⚔️', 'Bastos': '🪵'}
+    
     for i, carta in enumerate(st.session_state.mano):
+        palo = carta['palo']
+        cara = carta['cara']
         with cols[i]:
-            url = obtener_url_wikimedia(carta)
-            # Usamos un contenedor HTML para forzar el diseño realista
             st.markdown(f"""
-                <div class="carta-box">
-                    <img src="{url}" class="img-real" onerror="this.src='https://via.placeholder.com/140x210?text={carta['cara']}+{carta['palo']}'">
+                <div class="carta-pro palo-{palo}">
+                    <div class="esquina">{cara}</div>
+                    <div class="simbolo-central">{simbolos[palo]}</div>
+                    <div class="nombre-palo">{palo}</div>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -93,8 +99,7 @@ st.divider()
 
 # Botones de juego
 if st.session_state.mano:
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3 = st.columns(3)
     c1.button("PASO", use_container_width=True)
     c2.button("ENVIDO", use_container_width=True)
     c3.button("ÓRDAGO", use_container_width=True)
-    c4.button("QUIERO", use_container_width=True)
