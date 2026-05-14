@@ -2,41 +2,54 @@ import streamlit as st
 import random
 import os
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Órdago Mus Elite", layout="wide")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="Órdago Mus", layout="wide")
 
-# --- MOTOR DE JUEGO ---
+# --- MOTOR ---
 def crear_baraja_mus():
     palos = ['oros', 'copas', 'espadas', 'bastos']
     numeros = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]
     return [{'num': n, 'palo': p} for p in palos for n in numeros]
 
 if 'partida' not in st.session_state:
-    st.session_state.partida = {
-        'jugador': [], 'izquierda': [], 'derecha': [], 'arriba': []
-    }
+    st.session_state.partida = {'jugador': [], 'izquierda': [], 'derecha': [], 'arriba': []}
 
-# --- ESTILO DE LA MESA ---
+# --- CSS PARA CARTAS PEQUEÑAS ---
 st.markdown("""
     <style>
     .stApp { background: radial-gradient(circle, #1a4a1a 0%, #0d260d 100%); }
+    
+    /* Controlamos el tamaño máximo de la imagen */
+    img {
+        max-width: 80px !important; 
+        margin: 0 auto;
+        display: block;
+        border-radius: 4px;
+    }
+    
     .nombre-jugador {
         color: #FFD700;
         text-align: center;
-        background: rgba(0,0,0,0.5);
-        border-radius: 10px;
-        padding: 5px;
-        margin-bottom: 10px;
-        font-weight: bold;
+        font-size: 0.8rem;
+        background: rgba(0,0,0,0.4);
+        padding: 2px;
+        margin-bottom: 5px;
+        border-radius: 5px;
     }
-    .carta-mesa { border-radius: 5px; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
+
+    /* Reducir espacio entre columnas de Streamlit */
+    [data-testid="column"] {
+        padding: 0px !important;
+        text-align: center;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIÓN PARA RENDERIZAR MANOS ---
+# --- FUNCIÓN RENDER ---
 def mostrar_mano(mano, titulo):
     st.markdown(f"<div class='nombre-jugador'>{titulo}</div>", unsafe_allow_html=True)
     if mano:
+        # Usamos 4 columnas muy juntas
         cols = st.columns(4)
         for i, carta in enumerate(mano):
             with cols[i]:
@@ -44,14 +57,14 @@ def mostrar_mano(mano, titulo):
                 nombre_archivo = f"{num_str}-{carta['palo']}.png"
                 ruta = os.path.join("img", nombre_archivo)
                 if os.path.exists(ruta):
-                    st.image(ruta, use_container_width=True)
+                    st.image(ruta)
                 else:
-                    st.caption(f"{carta['num']}-{carta['palo']}")
+                    st.write(f"⚠️")
 
-# --- CABECERA ---
-st.title("🏆 GRAN MESA DE MUS")
+# --- MESA ---
+st.title("🏆 ÓRDAGO")
 
-if st.button("🧧 REPARTIR A TODA LA MESA", use_container_width=True):
+if st.button("🧧 REPARTIR NUEVA MANO", use_container_width=True):
     baraja = crear_baraja_mus()
     random.shuffle(baraja)
     st.session_state.partida['jugador'] = baraja[0:4]
@@ -60,32 +73,30 @@ if st.button("🧧 REPARTIR A TODA LA MESA", use_container_width=True):
     st.session_state.partida['derecha'] = baraja[12:16]
     st.rerun()
 
-# --- DISPOSICIÓN DE LA MESA ---
-# Fila Superior: Rival Arriba
-c1, c2, c3 = st.columns([1, 2, 1])
-with c2:
-    mostrar_mano(st.session_state.partida['arriba'], "PAREJA (ARRIBA)")
+# Disposición compacta
+# Fila Arriba
+_, centro_arriba, _ = st.columns([1, 1, 1])
+with centro_arriba:
+    mostrar_mano(st.session_state.partida['arriba'], "PAREJA")
 
-# Fila Central: Izquierda y Derecha
-col_izq, col_centro, col_der = st.columns([2, 1, 2])
-with col_izq:
-    mostrar_mano(st.session_state.partida['izquierda'], "RIVAL IZQUIERDA")
-with col_centro:
-    st.write("") # Espacio para el mazo o tanteo en el futuro
-with col_der:
-    mostrar_mano(st.session_state.partida['derecha'], "RIVAL DERECHA")
+# Fila Central
+izq, mazo, der = st.columns([1, 0.5, 1])
+with izq:
+    mostrar_mano(st.session_state.partida['izquierda'], "RIVAL IZQ")
+with mazo:
+    st.write("") # Aquí irían los amarracos o el mazo
+with der:
+    mostrar_mano(st.session_state.partida['derecha'], "RIVAL DER")
 
-# Fila Inferior: Tú
-c_a, c_b, c_c = st.columns([1, 2, 1])
-with c_b:
-    mostrar_mano(st.session_state.partida['jugador'], "TU MANO (VANESA)")
+# Fila Abajo
+_, centro_abajo, _ = st.columns([1, 1, 1])
+with centro_abajo:
+    mostrar_mano(st.session_state.partida['jugador'], "TU MANO")
 
-st.divider()
-
-# Botones de acción (solo si hay cartas)
-if st.session_state.partida['jugador']:
-    ac1, ac2, ac3, ac4 = st.columns(4)
-    ac1.button("PASO")
-    ac2.button("ENVIDO")
-    ac3.button("ÓRDAGO")
-    ac4.button("QUIERO")
+# Acciones pequeñas
+st.write("---")
+c1, c2, c3, c4 = st.columns(4)
+c1.button("PASO", key="p")
+c2.button("ENVIDO", key="e")
+c3.button("ÓRDAGO", key="o")
+c4.button("QUIERO", key="q")
