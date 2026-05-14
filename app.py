@@ -2,75 +2,58 @@ import streamlit as st
 import random
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Mus Real", layout="centered")
+st.set_page_config(page_title="Mus Realista", layout="centered")
 
-# --- MOTOR INTERNO ---
-def crear_baraja():
+# --- MOTOR INTERNO (Ajustado al repo de mcmd) ---
+def crear_baraja_mus():
     palos = ['oros', 'copas', 'espadas', 'bastos']
-    # En ese repo, las cartas van del 1 al 12 (10=Sota, 11=Caballo, 12=Rey)
-    numeros = range(1, 13)
+    # En el Mus usamos: 1, 2, 3, 4, 5, 6, 7, 10 (Sota), 11 (Caballo), 12 (Rey)
+    numeros = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]
     return [{'num': n, 'palo': p} for p in palos for n in numeros]
 
 if 'mano' not in st.session_state:
     st.session_state.mano = []
 
-# --- DISEÑO CSS ---
+# --- ESTILO DE LA MESA ---
 st.markdown("""
     <style>
-    .stApp { background-color: #165216; }
-    
-    .carta-realista {
-        width: 100%;
-        border-radius: 8px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-        transition: transform 0.2s;
-    }
-    
-    .carta-realista:hover {
-        transform: scale(1.05) translateY(-10px);
-    }
-    
-    .boton-repartir {
-        background-color: #ffd700 !important;
-        color: black !important;
-        font-weight: bold !important;
+    .stApp { background: radial-gradient(circle, #1a4a1a 0%, #0d260d 100%); }
+    .carta-marco {
+        background-color: white;
+        border-radius: 10px;
+        padding: 4px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.5);
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIÓN PARA EL ENLACE DE GITHUB ---
-def obtener_url_raw(carta):
-    # La estructura del repo que pasaste es: img/palo_numero.png
-    base_url = "https://raw.githubusercontent.com/mcmd/playingcards.io-spanish.playing.cards/master/img"
-    return f"{base_url}/{carta['palo']}_{carta['num']}.png"
+# --- FUNCIÓN DE CARGA SEGURA ---
+def get_card_url(carta):
+    # Esta es la URL "RAW" corregida del repositorio que pasaste
+    base = "https://raw.githubusercontent.com/mcmd/playingcards.io-spanish.playing.cards/master/img"
+    return f"{base}/{carta['palo']}_{carta['num']}.png"
 
 # --- INTERFAZ ---
-st.markdown("<h1 style='text-align: center; color: white;'>🎴 PARTIDA REALISTA</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: gold;'>🏆 PARTIDA DE MUS</h1>", unsafe_allow_html=True)
 
-if st.button("BARAJAR Y REPARTIR", use_container_width=True):
-    baraja = crear_baraja()
-    # El Mus se juega con 40 cartas (quitamos 8 y 9)
-    # Filtramos para que solo salgan 1-7 y 10-12
-    baraja_mus = [c for c in baraja if c['num'] not in [8, 9]]
-    random.shuffle(baraja_mus)
-    st.session_state.mano = baraja_mus[:4]
+if st.button("🧧 REPARTIR CARTAS", use_container_width=True):
+    baraja = crear_baraja_mus()
+    random.shuffle(baraja)
+    st.session_state.mano = baraja[:4]
     st.rerun()
 
-# --- MOSTRAR CARTAS ---
+# --- DIBUJAR CARTAS ---
 if st.session_state.mano:
     cols = st.columns(4)
     for i, carta in enumerate(st.session_state.mano):
         with cols[i]:
-            url = obtener_url_raw(carta)
-            # Usamos st.image con la URL raw
+            url = get_card_url(carta)
+            # El truco: Usamos el componente st.image nativo pero con una URL limpia
             st.image(url, use_container_width=True)
-            # Un pequeño texto debajo para confirmar
-            nombre_carta = f"{carta['num']} de {carta['palo'].capitalize()}"
-            st.markdown(f"<p style='color:white; text-align:center; font-size:12px;'>{nombre_carta}</p>", unsafe_allow_html=True)
+            st.caption(f"{carta['num']} de {carta['palo']}")
 
 st.divider()
 
-# Botones de juego
 if st.session_state.mano:
     c1, c2, c3 = st.columns(3)
     c1.button("PASO", use_container_width=True)
