@@ -11,8 +11,9 @@ if 'estado' not in st.session_state:
         'estado': "INICIO", 
         'partida': {'jugador': [], 'izq': [], 'der': [], 'arriba': []},
         'baraja': [],
+        'descartadas': [], # Nueva lista para guardar lo que tiramos
         'lance_actual': None,
-        'historial': "¡Mesa lista para la partida!"
+        'historial': "¡Mesa lista!"
     })
 
 # --- CSS ---
@@ -22,11 +23,19 @@ st.markdown("""
     [data-testid="stImage"] img { width: 45px !important; border-radius: 4px; }
     .label-jugador { color: #FFD700; font-size: 0.7rem; text-align: center; background: rgba(0,0,0,0.6); padding: 2px; border-radius: 5px; margin-bottom:5px;}
     .consola { background: #000; color: #0f0; font-family: monospace; padding: 10px; border-radius: 5px; border: 1px solid #0f0; min-height: 45px; margin-bottom: 10px;}
-    div[data-testid="stCheckbox"] { display: flex; justify-content: center; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIONES DE JUEGO ---
+# --- GESTIÓN SEGURA DE BARAJA ---
+def sacar_carta():
+    if not st.session_state.baraja:
+        # Si no hay cartas, mezclamos las descartadas
+        st.session_state.baraja = st.session_state.descartadas.copy()
+        random.shuffle(st.session_state.baraja)
+        st.session_state.descartadas = []
+        st.toast("Barajando descartes...")
+    return st.session_state.baraja.pop(0)
+
 def repartir():
     palos = ['oros', 'copas', 'espadas', 'bastos']
     nums = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]
@@ -34,25 +43,31 @@ def repartir():
     random.shuffle(baraja)
     st.session_state.partida = {'jugador': baraja[0:4], 'izq': baraja[4:8], 'arriba': baraja[8:12], 'der': baraja[12:16]}
     st.session_state.baraja = baraja[16:]
+    st.session_state.descartadas = []
     st.session_state.estado = "MUS"
     st.session_state.historial = "Cartas repartidas. ¿Hay Mus?"
 
 def ejecutar_descarte_ia_y_usuario(indices_usuario):
-    # Descarte Usuario
+    # Guardamos las cartas que tira el usuario
+    for i in indices_usuario:
+        st.session_state.descartadas.append(st.session_state.partida['jugador'][i])
+    
+    # Reponemos mano del usuario
     mano_u = [c for i, c in enumerate(st.session_state.partida['jugador']) if i not in indices_usuario]
-    while len(mano_u) < 4: mano_u.append(st.session_state.baraja.pop(0))
+    while len(mano_u) < 4: mano_u.append(sacar_carta())
     st.session_state.partida['jugador'] = mano_u
     
-    # Descarte Automático IA (Rival Izq, Pareja, Rival Der)
+    # Descarte IA
     for k in ['izq', 'arriba', 'der']:
         mano = st.session_state.partida[k]
-        # La IA se queda con Reyes (12), Treses (3), Ases (1) y Doses (2)
+        a_quitar = [c for c in mano if c['num'] not in [12, 1, 3, 2]]
+        st.session_state.descartadas.extend(a_quitar) # Al pozo
         conservar = [c for c in mano if c['num'] in [12, 1, 3, 2]]
-        while len(conservar) < 4: conservar.append(st.session_state.baraja.pop(0))
+        while len(conservar) < 4: conservar.append(sacar_carta())
         st.session_state.partida[k] = conservar
     
     st.session_state.estado = "MUS"
-    st.session_state.historial = "Descarte completado. ¿Vuelve a haber Mus?"
+    st.session_state.historial = "Descarte completado. ¿Sigue habiendo Mus?"
 
 # --- INTERFAZ ---
 st.markdown(f'<div class="consola">> {st.session_state.historial}</div>', unsafe_allow_html=True)
@@ -68,10 +83,9 @@ def dibujar_mano(clave, titulo, visible=False):
             img_name = f"{str(c['num']).zfill(2)}-{c['palo']}.png" if visible else "reverso.png"
             path = os.path.join("img", img_name)
             if os.path.exists(path): st.image(path)
-            else: st.button("🎴", key=f"btn_{clave}_{i}")
-            
+            else: st.button("🎴", key=f"b_{clave}_{i}")
             if clave == 'jugador' and st.session_state.estado == "DESCARTE":
-                if st.checkbox("Tirar", key=f"chk_{i}"): sel.append(i)
+                if st.checkbox("Tirar", key=f"ch_{i}"): sel.append(i)
     return sel
 
 # Mesa
@@ -83,7 +97,6 @@ with cd: dibujar_mano('der', "RIVAL DER")
 _, cy, _ = st.columns([1, 1, 1])
 with cy: indices_desc = dibujar_mano('jugador', "VANESA (TÚ)", visible=True)
 
-# --- BOTONES ---
 st.write("---")
 
 if st.session_state.estado == "INICIO":
@@ -94,42 +107,25 @@ if st.session_state.estado == "INICIO":
 elif st.session_state.estado == "MUS":
     c1, c2 = st.columns(2)
     if c1.button("✅ PEDIR MUS", use_container_width=True):
-        # IA decide si acepta Mus (probabilidad alta si no tienen jugada de cara)
         corta = any(any(c['num'] == 12 for c in st.session_state.partida[k]) for k in ['izq', 'der'])
         if corta and random.random() > 0.7:
             st.session_state.estado = "JUEGO"
-            st.session_state.historial = "¡Rival CORTA el Mus! Vamos a los lances."
+            st.session_state.historial = "¡Rival CORTA! A lances."
         else:
             st.session_state.estado = "DESCARTE"
-            st.session_state.historial = "Hay Mus. Selecciona cartas para descartar."
+            st.session_state.historial = "Elige tus descartes."
         st.rerun()
     if c2.button("❌ CORTAR", use_container_width=True):
         st.session_state.estado = "JUEGO"
-        st.session_state.historial = "Has cortado. Empezamos con la GRANDE."
         st.rerun()
 
 elif st.session_state.estado == "DESCARTE":
-    if st.button(f"♻️ DESCARTAR SELECCIONADAS ({len(indices_desc)})", use_container_width=True):
+    if st.button(f"♻️ DESCARTAR ({len(indices_desc)})", use_container_width=True):
         ejecutar_descarte_ia_y_usuario(indices_desc)
         st.rerun()
 
 elif st.session_state.estado == "JUEGO":
-    cols_l = st.columns(4)
-    lances = ["GRANDE", "CHICA", "PARES", "JUEGO"]
-    for i, l in enumerate(lances):
-        if cols_l[i].button(l, use_container_width=True, type="primary" if st.session_state.lance_actual == l else "secondary"):
-            st.session_state.lance_actual = l
-            st.rerun()
-
-    if st.session_state.lance_actual:
-        st.write(f"Apuestas para {st.session_state.lance_actual}:")
-        b1, b2, b3, b4 = st.columns(4)
-        b1.button("PASO")
-        b2.button("ENVIDO")
-        b3.button("ÓRDAGO")
-        b4.button("QUIERO")
-        
+    st.columns(4)[0].button("GRANDE", type="primary")
     if st.button("🔄 Nueva Mano", use_container_width=True):
         st.session_state.estado = "INICIO"
-        st.session_state.lance_actual = None
         st.rerun()
