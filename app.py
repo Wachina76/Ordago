@@ -3,7 +3,7 @@ import random
 import os
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Mus Profesional - Luis", layout="wide")
+st.set_page_config(page_title="Mus Profesional - Luis", layout="centered")
 
 # --- REGLAS DE PUNTUACIÓN ---
 def calcular_puntos_pares(mano):
@@ -33,13 +33,12 @@ if 'estado' not in st.session_state:
         'baraja': [],
         'descartadas': [],
         'lance_idx': 0,
-        'historial': "¡Mesa lista, Luis! 31 vale 3 y Medias valen 2.",
+        'historial': "Mesa compacta lista. ¡A por ellos, Luis!",
         'es_mano': 'jugador'
     })
 
 LANCES = ["GRANDE", "CHICA", "PARES", "JUEGO/PUNTO"]
 
-# --- LÓGICA DE CARTAS ---
 def sacar_carta():
     if not st.session_state.baraja:
         st.session_state.baraja = st.session_state.descartadas.copy()
@@ -47,21 +46,20 @@ def sacar_carta():
         st.session_state.descartadas = []
     return st.session_state.baraja.pop(0) if st.session_state.baraja else {'num': 1, 'palo': 'oros'}
 
-# --- IA COMPETITIVA ---
 def ia_evalua_envite(mano, lance, fuerza_necesaria=2):
     nums = [c['num'] for c in mano]
-    # Busca Reyes/3 en Grande y Ases/2 en Chica
     objetivos = [12, 3] if lance == "GRANDE" else [1, 2]
     fuerza = sum(1 for n in nums if n in objetivos)
     return fuerza >= fuerza_necesaria
 
-# --- CSS ---
+# --- CSS PARA COMPACTAR MESA ---
 st.markdown("""
     <style>
     .stApp { background: radial-gradient(circle, #1a4a1a 0%, #0d260d 100%); }
-    .marcador { background: #222; color: gold; padding: 10px; border-radius: 10px; text-align: center; border: 2px solid #444; font-size: 1.2rem; font-weight: bold;}
-    .label-jugador { color: #FFD700; text-align: center; background: rgba(0,0,0,0.7); padding: 3px; border-radius: 5px; font-size: 0.9rem;}
-    .consola { background: rgba(0,0,0,0.9); color: #0f0; font-family: monospace; padding: 10px; border: 1px solid #FFD700; text-align: center; border-radius: 10px; min-height: 80px;}
+    .marcador { background: #222; color: gold; padding: 5px; border-radius: 8px; text-align: center; border: 1px solid #444; font-size: 1.1rem; font-weight: bold;}
+    .label-jugador { color: #FFD700; text-align: center; background: rgba(0,0,0,0.7); padding: 2px; border-radius: 4px; font-size: 0.8rem; margin-bottom: 2px;}
+    .consola { background: rgba(0,0,0,0.9); color: #0f0; font-family: monospace; padding: 8px; border: 1px solid #FFD700; text-align: center; border-radius: 8px; font-size: 0.9rem;}
+    [data-testid="column"] { padding: 0px 5px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -70,8 +68,7 @@ m1, m2 = st.columns(2)
 with m1: st.markdown(f'<div class="marcador">NOSOTROS: {st.session_state.puntos["nosotros"]}</div>', unsafe_allow_html=True)
 with m2: st.markdown(f'<div class="marcador">ELLOS: {st.session_state.puntos["ellos"]}</div>', unsafe_allow_html=True)
 
-# --- DIBUJAR MANOS ---
-def dibujar_mano(clave, titulo, visible=False):
+def dibujar_mano(clave, titulo, visible=False, escala=60):
     st.markdown(f'<div class="label-jugador">{titulo}</div>', unsafe_allow_html=True)
     mano = st.session_state.partida[clave]
     if not mano: return
@@ -84,17 +81,23 @@ def dibujar_mano(clave, titulo, visible=False):
                     else: st.session_state.seleccionados.append(i)
                     st.rerun()
             img = os.path.join("img", f"{str(c['num']).zfill(2)}-{c['palo']}.png" if visible else "reverso.png")
-            if os.path.exists(img): st.image(img, width=70)
+            if os.path.exists(img): st.image(img, width=escala)
             else: st.write(f"{c['num']}{c['palo'][0]}")
 
-# --- TABLERO ---
-st.columns([1, 1, 1])[1].write(dibujar_mano('arriba', st.session_state.nombres['arriba'], st.session_state.estado == "REVELAR"))
-c_izq, c_mid, c_der = st.columns([1, 1.2, 1])
-with c_izq: dibujar_mano('izq', st.session_state.nombres['izq'], st.session_state.estado == "REVELAR")
+# --- MESA COMPACTA ---
+_, center_top, _ = st.columns([1, 2, 1])
+with center_top:
+    dibujar_mano('arriba', f"COMPAÑERO ({st.session_state.nombres['arriba']})", st.session_state.estado == "REVELAR", escala=50)
+
+c_izq, c_mid, c_der = st.columns([1, 2, 1])
+with c_izq: dibujar_mano('izq', st.session_state.nombres['izq'], st.session_state.estado == "REVELAR", escala=50)
 with c_mid:
     st.markdown(f'<div class="consola"><b>{st.session_state.estado}</b><br>{st.session_state.historial}</div>', unsafe_allow_html=True)
-with c_der: dibujar_mano('der', st.session_state.nombres['der'], st.session_state.estado == "REVELAR")
-st.columns([1, 1, 1])[1].write(dibujar_mano('jugador', "YO", True))
+with c_der: dibujar_mano('der', st.session_state.nombres['der'], st.session_state.estado == "REVELAR", escala=50)
+
+_, center_bot, _ = st.columns([1, 2, 1])
+with center_bot:
+    dibujar_mano('jugador', "LUIS (YO)", True, escala=70)
 
 # --- ACCIONES ---
 st.write("---")
@@ -112,39 +115,29 @@ elif st.session_state.estado == "MUS":
 
 elif st.session_state.estado == "DESCARTE":
     if st.button(f"♻️ CAMBIAR {len(st.session_state.seleccionados)} CARTAS", use_container_width=True, type="primary"):
-        mano_actual = st.session_state.partida['jugador']
-        # Cambio real de cartas
-        st.session_state.partida['jugador'] = [sacar_carta() if i in st.session_state.seleccionados else c for i, c in enumerate(mano_actual)]
-        # IA se descarta inteligentemente
+        st.session_state.partida['jugador'] = [sacar_carta() if i in st.session_state.seleccionados else c for i, c in enumerate(st.session_state.partida['jugador'])]
         for k in ['izq', 'arriba', 'der']:
-            m = st.session_state.partida[k]
-            st.session_state.partida[k] = [c if c['num'] in [12, 1, 3, 2] else sacar_carta() for c in m]
+            st.session_state.partida[k] = [c if c['num'] in [12, 1, 3, 2] else sacar_carta() for c in st.session_state.partida[k]]
         st.session_state.seleccionados = []; st.session_state.estado = "MUS"; st.rerun()
 
 elif st.session_state.estado == "JUEGO":
     lance = LANCES[st.session_state.lance_idx]
     b1, b2, b3 = st.columns(3)
     if b1.button("PASO", use_container_width=True):
-        if ia_evalua_envite(st.session_state.partida['izq'], lance, 1):
-            st.session_state.puntos['ellos'] += 1
-            st.session_state.historial = f"{st.session_state.nombres['izq']} se lleva el lance."
+        if ia_evalua_envite(st.session_state.partida['izq'], lance, 1): st.session_state.puntos['ellos'] += 1
         st.session_state.lance_idx += 1
         if st.session_state.lance_idx >= 4: st.session_state.estado = "REVELAR"
         st.rerun()
     if b2.button("ENVIDO (2)", use_container_width=True):
-        if ia_evalua_envite(st.session_state.partida['izq'], lance, 2):
-            st.session_state.historial = "¡QUIEREN! Se verá en el recuento."; st.session_state.puntos['nosotros'] += 2
-        else:
-            st.session_state.historial = "Se achican. +1 piedra."; st.session_state.puntos['nosotros'] += 1
+        if ia_evalua_envite(st.session_state.partida['izq'], lance, 2): st.session_state.puntos['nosotros'] += 2
+        else: st.session_state.puntos['nosotros'] += 1
         st.session_state.lance_idx += 1
         if st.session_state.lance_idx >= 4: st.session_state.estado = "REVELAR"
         st.rerun()
     if b3.button("ÓRDAGO", use_container_width=True):
-        if ia_evalua_envite(st.session_state.partida['izq'], lance, 3):
-            st.session_state.historial = "¡HAN QUERIDO EL ÓRDAGO!"; st.session_state.estado = "REVELAR"
-        else:
-            st.session_state.puntos['nosotros'] += 1; st.session_state.lance_idx += 1
-            if st.session_state.lance_idx >= 4: st.session_state.estado = "REVELAR"
+        if ia_evalua_envite(st.session_state.partida['izq'], lance, 3): st.session_state.estado = "REVELAR"
+        else: st.session_state.puntos['nosotros'] += 1; st.session_state.lance_idx += 1
+        if st.session_state.lance_idx >= 4: st.session_state.estado = "REVELAR"
         st.rerun()
 
 elif st.session_state.estado == "REVELAR":
