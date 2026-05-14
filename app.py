@@ -1,36 +1,36 @@
 import streamlit as st
 import random
 import os
+import time
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Órdago Mus Pro", layout="wide")
+st.set_page_config(page_title="Mus Instantáneo", layout="wide")
 
-# --- MOTOR DE CARTAS ---
+# --- MOTOR LÓGICO ---
 def crear_baraja_mus():
     palos = ['oros', 'copas', 'espadas', 'bastos']
     numeros = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]
     return [{'num': n, 'palo': p} for p in palos for n in numeros]
 
-# --- INICIALIZACIÓN DE MEMORIA (Session State) ---
 if 'estado' not in st.session_state:
-    st.session_state.estado = "INICIO" # INICIO, MUS, JUEGO
-if 'partida' not in st.session_state:
-    st.session_state.partida = {'jugador': [], 'izq': [], 'der': [], 'arriba': []}
-if 'historial' not in st.session_state:
-    st.session_state.historial = "Esperando a repartir..."
+    st.session_state.update({
+        'estado': "INICIO", 
+        'partida': {'jugador': [], 'izq': [], 'der': [], 'arriba': []},
+        'historial': "¡Mesa lista! Reparte para empezar."
+    })
 
-# --- CSS ---
+# --- CSS COMPACTO ---
 st.markdown("""
     <style>
     .stApp { background: radial-gradient(circle, #1a4a1a 0%, #0d260d 100%); }
-    [data-testid="stImage"] img { width: 45px !important; border-radius: 4px; }
-    .label-jugador { color: #FFD700; font-size: 0.7rem; text-align: center; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 8px; margin-bottom: 5px; }
-    .consola { background: #000; color: #0f0; font-family: monospace; padding: 10px; border-radius: 5px; border: 1px solid #333; font-size: 0.8rem; }
+    [data-testid="stImage"] img { width: 42px !important; border-radius: 3px; }
+    .label-jugador { color: #FFD700; font-size: 0.7rem; text-align: center; background: rgba(0,0,0,0.6); padding: 2px; border-radius: 5px; }
+    .consola { background: #000; color: #0f0; font-family: monospace; padding: 8px; border-radius: 5px; border: 1px solid #0f0; font-size: 0.85rem; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIONES DE ACCIÓN ---
-def repartir_todo():
+# --- ACCIONES RÁPIDAS ---
+def realizar_reparto():
     baraja = crear_baraja_mus()
     random.shuffle(baraja)
     st.session_state.partida = {
@@ -38,77 +38,81 @@ def repartir_todo():
         'arriba': baraja[8:12], 'der': baraja[12:16]
     }
     st.session_state.estado = "MUS"
-    st.session_state.historial = "Cartas repartidas. ¿Hay Mus?"
+    st.session_state.historial = "Cartas en la mesa. ¿Qué haces?"
 
-def decision_ia():
-    # Lógica simple: Los rivales siempre quieren mus si no tienen jugada grande
-    rivales = ["Rival Izq", "Rival Der", "Pareja"]
-    for r in rivales:
-        # Aquí podrías meter lógica real de Mus
-        pass
-    st.session_state.historial = "La IA está esperando tu decisión..."
-
-# --- RENDERIZADO DE CARTAS ---
-def mostrar_cartas(mano, visible=False):
-    if not mano: return
-    cols = st.columns(4)
-    for i, carta in enumerate(mano):
-        with cols[i]:
-            nombre = f"{str(carta['num']).zfill(2)}-{carta['palo']}.png" if visible else "reverso.png"
-            ruta = os.path.join("img", nombre)
-            if os.path.exists(ruta): st.image(ruta)
-            else: st.code(f"{carta['num']}")
+def procesar_mus_ia(accion_usuario):
+    if accion_usuario == "CORTAR":
+        st.session_state.estado = "LANCES"
+        st.session_state.historial = "¡Cortaste el mus! Empezamos con la GRANDE."
+    else:
+        # La IA decide INSTANTÁNEAMENTE
+        # Lógica: Si alguien tiene una pareja de Reyes o 31, corta el mus.
+        corta = False
+        quien_corta = ""
+        
+        for rival, clave in [("Rival Izq", "izq"), ("Pareja", "arriba"), ("Rival Der", "der")]:
+            mano = st.session_state.partida[clave]
+            # Simulación de decisión rápida
+            if any(c['num'] in [12, 1] for c in mano) and random.random() > 0.7:
+                corta = True
+                quien_corta = rival
+                break
+        
+        if corta:
+            st.session_state.estado = "LANCES"
+            st.session_state.historial = f"{quien_corta} ha cortado el Mus. ¡A jugar!"
+        else:
+            st.session_state.historial = "Todos han pedido Mus. ¡Descarte general!"
 
 # --- INTERFAZ ---
-st.title("🏆 MESA DE MUS INTELIGENTE")
+st.markdown(f'<div class="consola">> {st.session_state.historial}</div>', unsafe_allow_html=True)
 
-# Consola de avisos
-st.markdown(f'<div class="consola">{st.session_state.historial}</div>', unsafe_allow_html=True)
-st.write("")
+# MESA COMPACTA
+def dibujar_mano(clave, visible=False, titulo=""):
+    st.markdown(f'<div class="label-jugador">{titulo}</div>', unsafe_allow_html=True)
+    mano = st.session_state.partida[clave]
+    if mano:
+        cols = st.columns(4)
+        for i, c in enumerate(mano):
+            nombre = f"{str(c['num']).zfill(2)}-{c['palo']}.png" if visible else "reverso.png"
+            ruta = os.path.join("img", nombre)
+            with cols[i]:
+                if os.path.exists(ruta): st.image(ruta)
+                else: st.code(f"{c['num']}")
 
-# REPARTO (Solo si estamos en inicio o terminó la mano)
-if st.session_state.estado == "INICIO":
-    if st.button("🧧 REPARTIR CARTAS", use_container_width=True):
-        repartir_todo()
-        st.rerun()
-
-# --- DISPOSICIÓN ---
+# Layout de mesa
 c1, c2, c3 = st.columns([1, 1, 1])
-with c2: # ARRIBA
-    st.markdown('<div class="label-jugador">Pareja</div>', unsafe_allow_html=True)
-    mostrar_cartas(st.session_state.partida['arriba'], visible=False)
+with c2: dibujar_mano('arriba', False, "PAREJA")
 
 c_izq, c_mid, c_der = st.columns([1, 1, 1])
-with c_izq: # IZQ
-    st.markdown('<div class="label-jugador">Rival Izq</div>', unsafe_allow_html=True)
-    mostrar_cartas(st.session_state.partida['izq'], visible=False)
-with c_der: # DER
-    st.markdown('<div class="label-jugador">Rival Der</div>', unsafe_allow_html=True)
-    mostrar_cartas(st.session_state.partida['der'], visible=False)
+with c_izq: dibujar_mano('izq', False, "RIVAL IZQ")
+with c_der: dibujar_mano('der', False, "RIVAL DER")
 
 _, c_yo, _ = st.columns([1, 1, 1])
-with c_yo: # TÚ
-    st.markdown('<div class="label-jugador">Vanesa (Tú)</div>', unsafe_allow_html=True)
-    mostrar_cartas(st.session_state.partida['jugador'], visible=True)
+with c_yo: dibujar_mano('jugador', True, "TU MANO")
 
-# --- BOTONES DE DECISIÓN ---
-st.divider()
-if st.session_state.estado == "MUS":
-    col_a, col_b = st.columns(2)
-    if col_a.button("✅ PEDIR MUS", use_container_width=True):
-        st.session_state.historial = "Has pedido Mus. Los rivales están pensando..."
-        # Aquí llamaríamos a una función que simula el descarte
-    if col_b.button("❌ NO HAY MUS (CORTAR)", use_container_width=True):
-        st.session_state.estado = "JUEGO"
-        st.session_state.historial = "¡CORTADO! Empiezan los lances: Grande, Chica..."
+# --- BOTONES DE ACCIÓN VELOZ ---
+st.write("---")
+if st.session_state.estado == "INICIO":
+    if st.button("🧧 REPARTIR", use_container_width=True):
+        realizar_reparto()
         st.rerun()
 
-if st.session_state.estado == "JUEGO":
-    cols_j = st.columns(4)
-    cols_j[0].button("GRANDE")
-    cols_j[1].button("CHICA")
-    cols_j[2].button("PARES")
-    cols_j[3].button("JUEGO")
-    if st.button("🔄 Reiniciar Mesa"):
+elif st.session_state.estado == "MUS":
+    col_a, col_b = st.columns(2)
+    if col_a.button("✅ MUS", use_container_width=True):
+        procesar_mus_ia("MUS")
+        st.rerun()
+    if col_b.button("❌ CORTO", use_container_width=True):
+        procesar_mus_ia("CORTAR")
+        st.rerun()
+
+elif st.session_state.estado == "LANCES":
+    l1, l2, l3, l4 = st.columns(4)
+    l1.button("GRANDE")
+    l2.button("CHICA")
+    l3.button("PARES")
+    l4.button("JUEGO")
+    if st.button("🔄 Nueva Mano", use_container_width=True):
         st.session_state.estado = "INICIO"
         st.rerun()
