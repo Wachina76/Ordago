@@ -5,15 +5,15 @@ import os
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Mus Pro - Vanesa", layout="wide")
 
-# --- MOTOR LÓGICO ---
+# --- INICIALIZACIÓN ---
 if 'estado' not in st.session_state:
     st.session_state.update({
         'estado': "INICIO", 
         'partida': {'jugador': [], 'izq': [], 'der': [], 'arriba': []},
         'baraja': [],
-        'descartadas': [], # Nueva lista para guardar lo que tiramos
+        'descartadas': [],
         'lance_actual': None,
-        'historial': "¡Mesa lista!"
+        'historial': "¡Mesa lista! Reparte para empezar."
     })
 
 # --- CSS ---
@@ -26,14 +26,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- GESTIÓN SEGURA DE BARAJA ---
+# --- MOTOR DE CARTAS ---
 def sacar_carta():
     if not st.session_state.baraja:
-        # Si no hay cartas, mezclamos las descartadas
         st.session_state.baraja = st.session_state.descartadas.copy()
         random.shuffle(st.session_state.baraja)
         st.session_state.descartadas = []
-        st.toast("Barajando descartes...")
     return st.session_state.baraja.pop(0)
 
 def repartir():
@@ -47,32 +45,27 @@ def repartir():
     st.session_state.estado = "MUS"
     st.session_state.historial = "Cartas repartidas. ¿Hay Mus?"
 
-def ejecutar_descarte_ia_y_usuario(indices_usuario):
-    # Guardamos las cartas que tira el usuario
-    for i in indices_usuario:
-        st.session_state.descartadas.append(st.session_state.partida['jugador'][i])
-    
-    # Reponemos mano del usuario
-    mano_u = [c for i, c in enumerate(st.session_state.partida['jugador']) if i not in indices_usuario]
+def ejecutar_descarte(indices_u):
+    for i in indices_u: st.session_state.descartadas.append(st.session_state.partida['jugador'][i])
+    mano_u = [c for i, c in enumerate(st.session_state.partida['jugador']) if i not in indices_u]
     while len(mano_u) < 4: mano_u.append(sacar_carta())
     st.session_state.partida['jugador'] = mano_u
     
-    # Descarte IA
     for k in ['izq', 'arriba', 'der']:
         mano = st.session_state.partida[k]
         a_quitar = [c for c in mano if c['num'] not in [12, 1, 3, 2]]
-        st.session_state.descartadas.extend(a_quitar) # Al pozo
+        st.session_state.descartadas.extend(a_quitar)
         conservar = [c for c in mano if c['num'] in [12, 1, 3, 2]]
         while len(conservar) < 4: conservar.append(sacar_carta())
         st.session_state.partida[k] = conservar
     
     st.session_state.estado = "MUS"
-    st.session_state.historial = "Descarte completado. ¿Sigue habiendo Mus?"
+    st.session_state.historial = "Descarte hecho. ¿Vuelve a haber Mus?"
 
 # --- INTERFAZ ---
 st.markdown(f'<div class="consola">> {st.session_state.historial}</div>', unsafe_allow_html=True)
 
-def dibujar_mano(clave, titulo, visible=False):
+def dibujar_mesa(clave, titulo, visible=False):
     st.markdown(f'<div class="label-jugador">{titulo}</div>', unsafe_allow_html=True)
     mano = st.session_state.partida[clave]
     if not mano: return []
@@ -80,25 +73,26 @@ def dibujar_mano(clave, titulo, visible=False):
     sel = []
     for i, c in enumerate(mano):
         with cols[i]:
-            img_name = f"{str(c['num']).zfill(2)}-{c['palo']}.png" if visible else "reverso.png"
-            path = os.path.join("img", img_name)
+            fname = f"{str(c['num']).zfill(2)}-{c['palo']}.png" if visible else "reverso.png"
+            path = os.path.join("img", fname)
             if os.path.exists(path): st.image(path)
-            else: st.button("🎴", key=f"b_{clave}_{i}")
+            else: st.button("🎴", key=f"x_{clave}_{i}")
             if clave == 'jugador' and st.session_state.estado == "DESCARTE":
-                if st.checkbox("Tirar", key=f"ch_{i}"): sel.append(i)
+                if st.checkbox("Tirar", key=f"c_{i}"): sel.append(i)
     return sel
 
-# Mesa
+# Mesa visual
 c1, c2, c3 = st.columns([1, 1, 1])
-with c2: dibujar_mano('arriba', "PAREJA")
+with c2: dibujar_mesa('arriba', "PAREJA")
 ci, cm, cd = st.columns([1, 1, 1])
-with ci: dibujar_mano('izq', "RIVAL IZQ")
-with cd: dibujar_mano('der', "RIVAL DER")
+with ci: dibujar_mesa('izq', "RIVAL IZQ")
+with cd: dibujar_mesa('der', "RIVAL DER")
 _, cy, _ = st.columns([1, 1, 1])
-with cy: indices_desc = dibujar_mano('jugador', "VANESA (TÚ)", visible=True)
+with cy: indices = dibujar_mesa('jugador', "VANESA (TÚ)", visible=True)
 
 st.write("---")
 
+# --- CONTROL DE FLUJO ---
 if st.session_state.estado == "INICIO":
     if st.button("🧧 REPARTIR", use_container_width=True):
         repartir()
@@ -107,25 +101,52 @@ if st.session_state.estado == "INICIO":
 elif st.session_state.estado == "MUS":
     c1, c2 = st.columns(2)
     if c1.button("✅ PEDIR MUS", use_container_width=True):
-        corta = any(any(c['num'] == 12 for c in st.session_state.partida[k]) for k in ['izq', 'der'])
-        if corta and random.random() > 0.7:
+        # LA IA DECIDE:
+        quien_corta = None
+        for rival in ['izq', 'der']:
+            mano_r = st.session_state.partida[rival]
+            # Si tienen Rey o 3, cortan con 80% de probabilidad
+            tiene_jugada = any(c['num'] in [12, 3] for c in mano_r)
+            if tiene_jugada and random.random() < 0.8:
+                quien_corta = "Rival Izquierdo" if rival == 'izq' else "Rival Derecho"
+                break
+        
+        if quien_corta:
             st.session_state.estado = "JUEGO"
-            st.session_state.historial = "¡Rival CORTA! A lances."
+            st.session_state.historial = f"¡{quien_corta} CORTA el Mus! Empezamos lances."
         else:
             st.session_state.estado = "DESCARTE"
-            st.session_state.historial = "Elige tus descartes."
+            st.session_state.historial = "Hay Mus. Elige tus descartes."
         st.rerun()
-    if c2.button("❌ CORTAR", use_container_width=True):
+        
+    if c2.button("❌ CORTO", use_container_width=True):
         st.session_state.estado = "JUEGO"
+        st.session_state.historial = "Has cortado. Grande a falta."
         st.rerun()
 
 elif st.session_state.estado == "DESCARTE":
-    if st.button(f"♻️ DESCARTAR ({len(indices_desc)})", use_container_width=True):
-        ejecutar_descarte_ia_y_usuario(indices_desc)
+    if st.button(f"♻️ CONFIRMAR DESCARTE ({len(indices)})", use_container_width=True):
+        ejecutar_descarte(indices)
         st.rerun()
 
 elif st.session_state.estado == "JUEGO":
-    st.columns(4)[0].button("GRANDE", type="primary")
-    if st.button("🔄 Nueva Mano", use_container_width=True):
+    st.markdown("<p style='color:gold; text-align:center;'>LANCES Y APUESTAS</p>", unsafe_allow_html=True)
+    l_cols = st.columns(4)
+    nombres_lances = ["GRANDE", "CHICA", "PARES", "JUEGO"]
+    for i, lance in enumerate(nombres_lances):
+        if l_cols[i].button(lance, use_container_width=True, type="primary" if st.session_state.lance_actual == lance else "secondary"):
+            st.session_state.lance_actual = lance
+            st.rerun()
+            
+    if st.session_state.lance_actual:
+        st.info(f"Apostando en: {st.session_state.lance_actual}")
+        a_cols = st.columns(4)
+        if a_cols[0].button("PASO", use_container_width=True): st.session_state.historial = f"Pasas en {st.session_state.lance_actual}"
+        if a_cols[1].button("ENVIDO", use_container_width=True): st.session_state.historial = "¡Envidas 2!"
+        if a_cols[2].button("ÓRDAGO", use_container_width=True): st.session_state.historial = "¡ÓRDAGO!"
+        if a_cols[3].button("QUIERO", use_container_width=True): st.session_state.historial = "¡Quieres la apuesta!"
+        
+    if st.button("🔄 Nueva Mano / Limpiar", use_container_width=True):
         st.session_state.estado = "INICIO"
+        st.session_state.lance_actual = None
         st.rerun()
