@@ -1,55 +1,50 @@
 import streamlit as st
-import time
-from engine import crear_baraja, repartir, comparar_manos
+from engine import crear_baraja, repartir
 
-# Configuración de la página
-st.set_page_config(page_title="Mus Online", page_icon="🃏")
+st.set_page_config(page_title="Mus Real", layout="centered")
 
-# Estilo para las cartas con colores
-def estilo_carta(carta):
-    color = "red" if carta['palo'] in ['Copas', 'Oros'] else "black"
-    return f"""
-    <div style="border: 2px solid gray; border-radius: 10px; padding: 10px; 
-                width: 60px; height: 90px; text-align: center; display: inline-block; 
-                margin: 5px; background-color: white; color: {color}; font-weight: bold;">
-        {carta['cara']}<br>{carta['palo'][0]}
-    </div>
-    """
+# Diccionario para convertir nombres de cartas a URLs de imágenes
+# Nota: Usamos una base de imágenes de Wikimedia o similar
+BASE_URL = "https://raw.githubusercontent.com/saulmaldonado/spanish-deck/master/cards/"
 
-# Inicializar el estado del juego si no existe
-if 'marcador' not in st.session_state:
-    st.session_state.marcador = {"Pareja A": 0, "Pareja B": 0}
-    st.session_state.mano_jugador = []
-    st.session_state.partida_iniciada = False
-
-st.title("🃏 Gran Mus Web")
-
-# Marcador visual
-col1, col2 = st.columns(2)
-col1.metric("Tu Equipo", st.session_state.marcador["Pareja A"])
-col2.metric("Rivales", st.session_state.marcador["Pareja B"])
-
-if st.button("Repartir Nueva Mano"):
-    baraja = crear_baraja()
-    manos = repartir(baraja)
-    st.session_state.mano_jugador = manos[0]
-    st.session_state.partida_iniciada = True
-
-if st.session_state.partida_iniciada:
-    st.subheader("Tus Cartas:")
-    # Mostrar cartas con colores
-    cartas_html = "".join([estilo_carta(c) for c in st.session_state.mano_jugador])
-    st.markdown(cartas_html, unsafe_allow_html=True)
-
-    st.subheader("¿Qué quieres hacer?")
-    c1, c2, c3 = st.columns(3)
+def get_image_url(carta):
+    palo_map = {'Oros': 'oros', 'Copas': 'copas', 'Espadas': 'espadas', 'Bastos': 'bastos'}
+    # Mapeo de caras a números de imagen (R=12, C=11, S=10, etc.)
+    cara_map = {'R': 12, 'C': 11, 'S': 10, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2, 'A': 1}
     
-    if c1.button("PASO"):
-        st.info("Has pasado. Esperando a la IA...")
-        # Aquí llamarías a la lógica de ia.py
-        
-    if c2.button("ENVIDO"):
-        st.warning("¡Has envidado 2 tantos!")
-        
-    if c3.button("ÓRDAGO"):
-        st.error("¡ÓRDAGO A LA GRANDE!")
+    palo = palo_map[carta['palo']]
+    num = cara_map[carta['cara']]
+    return f"{BASE_URL}{palo}_{num}.png"
+
+# --- LÓGICA DE ESTADO ---
+if 'mano' not in st.session_state:
+    st.session_state.mano = []
+
+st.title("🃏 Mus Profesional")
+
+if st.button("🎴 Repartir Cartas"):
+    baraja = crear_baraja()
+    st.session_state.mano = repartir(baraja)[0]
+
+# --- RENDERIZADO DE CARTAS ---
+if st.session_state.mano:
+    cols = st.columns(4)
+    for i, carta in enumerate(st.session_state.mano):
+        with cols[i]:
+            url = get_image_url(carta)
+            # Mostramos la imagen de la carta
+            st.image(url, use_container_width=True)
+            st.caption(f"{carta['cara']} de {carta['palo']}")
+
+# --- BOTONES DE JUEGO ---
+st.divider()
+c1, c2, c3, c4 = st.columns(4)
+with c1:
+    if st.button("👍 Paso"): st.info("Pasas")
+with c2:
+    if st.button("💰 Envido"): st.warning("¡Envido!")
+with c3:
+    if st.button("🔥 Órdago"): st.error("¡ÓRDAGO!")
+with c4:
+    if st.button("🤫 Seña"): st.toast("Has hecho una seña a tu socio")
+
